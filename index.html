@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI 协作学习室</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        #chat-container { width: 100%; max-width: 800px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 90vh; }
+        #header { padding: 15px 20px; background: #0078d4; color: white; border-radius: 10px 10px 0 0; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .msg-box { max-width: 80%; padding: 10px 15px; border-radius: 8px; line-height: 1.5; }
+        .msg-sender { font-size: 0.8em; font-weight: bold; margin-bottom: 5px; color: #555; }
+        
+        /* 不同的气泡颜色 */
+        .msg-Human { background: #dcf8c6; align-self: flex-end; } /* 人类绿色 */
+        .msg-Planner { background: #e1f5fe; align-self: flex-start; border-left: 4px solid #03a9f4; } /* 规划师蓝色 */
+        .msg-Facilitator { background: #fff3e0; align-self: flex-start; border-left: 4px solid #ff9800; } /* 引导者橙色 */
+        .msg-System { background: #eeeeee; align-self: center; font-size: 0.85em; color: #888; text-align: center; border-radius: 20px; padding: 5px 15px; }
+        
+        #input-area { display: flex; padding: 15px; border-top: 1px solid #ddd; background: #fafafa; border-radius: 0 0 10px 10px; }
+        #messageText { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 5px; outline: none; font-size: 1em; }
+        #messageText:focus { border-color: #0078d4; }
+        button { padding: 12px 25px; background: #0078d4; color: white; border: none; border-radius: 5px; margin-left: 10px; cursor: pointer; font-weight: bold; font-size: 1em; }
+        button:hover { background: #005a9e; }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="header">
+            <span>🌐 多人协作 + 多智能体学习室</span>
+            <span id="user-display">未连接</span>
+        </div>
+        <div id="messages"></div>
+        <div id="input-area">
+            <input type="text" id="messageText" autocomplete="off" placeholder="输入你想探讨的问题，按回车发送..."/>
+            <button onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. 获取用户身份
+        let username = prompt("欢迎来到协作室！请输入你的名字 (如：张三、同学A)：");
+        if (!username) username = "匿名者" + Math.floor(Math.random()*1000);
+        document.getElementById("user-display").innerText = "当前身份: " + username;
+
+        // 2. 建立 WebSocket 连接
+        let ws = new WebSocket(`ws://localhost:8000/ws/${username}`);
+
+        // 3. 接收广播消息并渲染到界面
+        ws.onmessage = function(event) {
+            let data = JSON.parse(event.data);
+            let messages = document.getElementById('messages');
+            let msgDiv = document.createElement('div');
+            
+            // 判断是谁发的消息，应用不同的 CSS 气泡样式
+            let roleClass = "msg-System";
+            if (data.sender === username || data.sender !== "Planner" && data.sender !== "Facilitator" && data.sender !== "System") {
+                roleClass = "msg-Human"; // 无论是你还是别的同学，都用绿色气泡
+            } else if (data.sender === "Planner") {
+                roleClass = "msg-Planner";
+            } else if (data.sender === "Facilitator") {
+                roleClass = "msg-Facilitator";
+            }
+
+            msgDiv.className = `msg-box ${roleClass}`;
+            
+            // System 消息不显示名字
+            if (data.sender === "System") {
+                msgDiv.innerText = data.message;
+            } else {
+                msgDiv.innerHTML = `<div class="msg-sender">${data.sender}</div><div>${data.message}</div>`;
+            }
+
+            messages.appendChild(msgDiv);
+            // 自动滚动到最底部
+            messages.scrollTop = messages.scrollHeight;
+        };
+
+        // 4. 发送消息
+        function sendMessage() {
+            let input = document.getElementById("messageText");
+            if (input.value.trim() !== "") {
+                ws.send(input.value);
+                input.value = '';
+            }
+        }
+
+        // 绑定回车键发送
+        document.getElementById("messageText").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
