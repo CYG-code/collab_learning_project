@@ -3,17 +3,20 @@
 <head>
     <title>AI 协作学习室</title>
     <meta charset="utf-8">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/marked/12.0.1/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        #chat-container { width: 100%; max-width: 900px; background: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.05); display: flex; flex-direction: column; height: 90vh; }
+        #chat-container { width: 100%; max-width: 900px; background: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.05); display: flex; flex-direction: column; height: 90vh; position: relative; transition: all 0.3s;}
+        
+        /* 拖拽时的全局蒙版效果 */
+        .drag-active { outline: 4px dashed #3498db !important; outline-offset: -10px; background: rgba(52, 152, 219, 0.05) !important; }
+        
         #header { padding: 15px 20px; background: #2c3e50; color: white; border-radius: 12px 12px 0 0; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between; }
         #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
         
-        /* 气泡样式重构 */
         .msg-box { max-width: 85%; padding: 12px 18px; border-radius: 8px; line-height: 1.6; font-size: 0.95em; }
         .msg-sender { font-size: 0.85em; font-weight: bold; margin-bottom: 8px; color: #555; }
         .msg-Human { background: #dcf8c6; align-self: flex-end; }
@@ -21,81 +24,32 @@
         .msg-Facilitator { background: #fffdf7; align-self: flex-start; border-left: 4px solid #f39c12; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
         .msg-System { background: transparent; align-self: center; font-size: 0.8em; color: #aaa; text-align: center; }
         
-        /* ==================================== */
-        /* 工业级代码块 UI (带头部栏与复制按钮) */
-        /* ==================================== */
-        
-        .code-block-wrapper {
-            background: #0d1117; /* 极客黑底色 */
-            border-radius: 8px;
-            margin: 15px 0;
-            overflow: hidden; /* 让子元素不溢出圆角 */
-            border: 1px solid #30363d;
-        }
-
-        .code-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #161b22; /* 头部栏稍微亮一点点，形成层次感 */
-            padding: 8px 15px;
-            color: #8b949e;
-            font-size: 0.85em;
-            font-family: 'Segoe UI', sans-serif;
-            border-bottom: 1px solid #30363d;
-        }
-
-        .code-lang {
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .code-copy-btn {
-            background: none;
-            border: none;
-            color: #8b949e;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.9em;
-            padding: 0;
-            transition: color 0.2s;
-        }
-
-        .code-copy-btn:hover {
-            color: #c9d1d9;
-        }
-
-        /* 重写 pre，去掉自带的背景和边距，让它完美融入 wrapper */
-        .markdown-body pre { 
-            margin: 0 !important; 
-            padding: 15px !important; 
-            background: transparent !important; 
-            border-radius: 0 !important; 
-            overflow-x: auto;
-            color: #c9d1d9;
-        }
-        
-        .markdown-body pre code { 
-            font-family: 'Consolas', 'Monaco', monospace; 
-            font-size: 0.9em;
-        }
-        
-        /* 段落与间距优化 */
+        /* 代码块 UI 样式 */
+        .code-block-wrapper { background: #0d1117; border-radius: 8px; margin: 15px 0; overflow: hidden; border: 1px solid #30363d;}
+        .code-header { display: flex; justify-content: space-between; align-items: center; background: #161b22; padding: 8px 15px; color: #8b949e; font-size: 0.85em; border-bottom: 1px solid #30363d; }
+        .code-lang { font-weight: 600; }
+        .code-copy-btn { background: none; border: none; color: #8b949e; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.9em; padding: 0; }
+        .code-copy-btn:hover { color: #c9d1d9; }
+        .markdown-body pre { margin: 0 !important; padding: 15px !important; background: transparent !important; color: #c9d1d9; overflow-x: auto; }
+        .markdown-body pre code { font-family: 'Consolas', monospace; font-size: 0.9em; }
+        .markdown-body :not(pre) > code { background: rgba(0,0,0,0.06); color: #d63384; padding: 3px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em;}
         .markdown-body p { margin-top: 0; margin-bottom: 10px; }
         .markdown-body p:last-child { margin-bottom: 0; }
         
-        /* 状态感知栏 */
         #typing-indicator { padding: 5px 20px; font-size: 0.85em; color: #888; font-style: italic; min-height: 20px; }
         
-        /* 输入区 */
+        /* 附件预览区域 */
+        #attachment-preview { display: none; padding: 10px 20px; background: #f8f9fa; border-top: 1px solid #eee; gap: 10px; flex-wrap: wrap; }
+        .file-chip { display: flex; align-items: center; background: white; padding: 5px 12px; border-radius: 20px; font-size: 0.85em; color: #2c3e50; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+        .file-chip img { max-height: 20px; margin-right: 8px; border-radius: 3px; }
+        .remove-file { margin-left: 10px; cursor: pointer; color: #e74c3c; font-weight: bold; }
+        
         #input-area { display: flex; padding: 15px; border-top: 1px solid #eee; background: #fafafa; border-radius: 0 0 12px 12px; align-items: center; gap: 10px;}
         #btn-attach { background: none; border: none; font-size: 1.5em; cursor: pointer; color: #7f8c8d; }
         #btn-attach:hover { color: #2c3e50; }
         #messageText { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 1em; }
         #messageText:focus { border-color: #3498db; }
-        #btn-send { padding: 12px 25px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;}
+        #btn-send { padding: 12px 25px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;}
         #btn-send:hover { background: #2980b9; }
     </style>
 </head>
@@ -106,28 +60,33 @@
             <span id="user-display">未连接</span>
         </div>
         <div id="messages"></div>
-        
         <div id="typing-indicator"></div>
         
+        <div id="attachment-preview"></div>
+        
         <div id="input-area">
-            <input type="file" id="fileInput" style="display: none;" multiple accept=".txt,.pdf,image/*">
-            <button id="btn-attach" onclick="document.getElementById('fileInput').click()" title="上传文档/图片">📎</button>
-            
-            <input type="text" id="messageText" autocomplete="off" placeholder="探讨问题，或输入 @Planner 提问..."/>
+            <input type="file" id="fileInput" style="display: none;" multiple accept=".pdf,image/*">
+            <button id="btn-attach" onclick="document.getElementById('fileInput').click()" title="上传文档/图片 (支持拖拽和粘贴)">📎</button>
+            <input type="text" id="messageText" autocomplete="off" placeholder="输入文字，或直接粘贴图片/拖拽文件进窗口..."/>
             <button id="btn-send" onclick="sendMessage()">发送</button>
         </div>
     </div>
 
     <script>
-        let username = prompt("请输入你的协作名 (如：学生A)：") || "匿名者" + Math.floor(Math.random()*1000);
+        // let username = prompt("请输入你的协作名 (如：学生A)：") || "匿名者" + Math.floor(Math.random()*1000);
+        // test
+        let username = "测试同学A";
+
         document.getElementById("user-display").innerText = "身份: " + username;
 
         let ws = new WebSocket(`ws://localhost:8000/ws/${username}`);
-        let typingUsers = new Set(); // 存储当前正在输入的人/AI
+        let typingUsers = new Set();
+        let aiTimerInterval = null;
+        let aiStartTime = 0;
+        
+        // 专门存放等待发送的文件容器
+        let pendingFiles = [];
 
-        // ==========================================
-        // 1. 安全 Markdown 渲染器配置
-        // ==========================================
         const renderer = {
             code(token) {
                 const codeText = token.text || '';
@@ -150,33 +109,12 @@
             }
         };
 
-        marked.use({ 
-            breaks: true,
-            renderer: renderer 
-        });
+        marked.use({ breaks: true, renderer: renderer });
 
-        // 剪贴板复制触发函数
-        function copyCode(btn, base64Code) {
-            const rawCode = decodeURIComponent(escape(atob(base64Code)));
-            navigator.clipboard.writeText(rawCode).then(() => {
-                const span = btn.querySelector('span');
-                const originalText = span.innerText;
-                span.innerText = '✅ 已复制';
-                setTimeout(() => { span.innerText = originalText; }, 2000);
-            }).catch(err => console.error('复制失败!', err));
-        }
-
-        // ==========================================
-        // 2. 消息接收与渲染
-        // ==========================================
         ws.onmessage = function(event) {
             let data = JSON.parse(event.data);
-            
-            if (data.type === "message") {
-                renderMessage(data);
-            } else if (data.type === "typing") {
-                updateTypingIndicator(data);
-            }
+            if (data.type === "message") renderMessage(data);
+            else if (data.type === "typing") updateTypingIndicator(data);
         };
 
         function renderMessage(data) {
@@ -186,21 +124,16 @@
             let roleClass = "msg-System";
             if (data.sender === username || (!["Planner", "Facilitator", "System"].includes(data.sender))) {
                 roleClass = "msg-Human";
-            } else if (data.sender === "Planner") {
-                roleClass = "msg-Planner";
-            } else if (data.sender === "Facilitator") {
-                roleClass = "msg-Facilitator";
-            }
+            } else if (data.sender === "Planner") roleClass = "msg-Planner";
+            else if (data.sender === "Facilitator") roleClass = "msg-Facilitator";
 
             msgDiv.className = `msg-box ${roleClass}`;
             
             if (data.sender === "System") {
                 msgDiv.innerText = data.message;
             } else {
-                // 🛡️ 核心修复点：强制转换为 String，兜底 undefined，防止 markedjs 崩溃
                 let safeMessage = String(data.message || '');
                 let parsedHTML = marked.parse(safeMessage);
-                
                 msgDiv.innerHTML = `<div class="msg-sender">${data.sender}</div><div class="markdown-body">${parsedHTML}</div>`;
             }
 
@@ -208,59 +141,38 @@
             messages.scrollTop = messages.scrollHeight;
         }
 
-        // ==========================================
-        // 3. 协作感知与 AI 思考计时器
-        // ==========================================
-        
-        let aiTimerInterval = null;
-        let aiStartTime = 0;
-
         function updateTypingIndicator(data) {
             if (data.is_typing && data.sender !== username) {
                 typingUsers.add(data.sender);
-                
                 if (["Planner", "Facilitator"].includes(data.sender) && !aiTimerInterval) {
                     aiStartTime = Date.now();
-                    // 频率降低：每 1000 毫秒（1秒）刷新一次 UI 即可
                     aiTimerInterval = setInterval(renderTypingText, 1000); 
                 }
             } else {
                 typingUsers.delete(data.sender);
-                
                 let hasAIThinking = Array.from(typingUsers).some(u => ["Planner", "Facilitator"].includes(u));
                 if (!hasAIThinking && aiTimerInterval) {
                     clearInterval(aiTimerInterval);
                     aiTimerInterval = null;
                 }
             }
-            
             renderTypingText();
         }
 
         function renderTypingText() {
             let indicatorDiv = document.getElementById("typing-indicator");
-            if (typingUsers.size === 0) {
-                indicatorDiv.innerText = "";
-                return;
-            }
+            if (typingUsers.size === 0) { indicatorDiv.innerText = ""; return; }
 
             let users = Array.from(typingUsers);
             let aiUsers = users.filter(u => ["Planner", "Facilitator"].includes(u));
             let humanUsers = users.filter(u => !["Planner", "Facilitator"].includes(u));
 
             let parts = [];
-            
             if (aiUsers.length > 0) {
-                // 使用 Math.floor 向下取整，获取纯粹的秒数
                 let elapsedSeconds = Math.floor((Date.now() - aiStartTime) / 1000);
-                // 格式修改：加了括号
                 parts.push(`🧠 ${aiUsers.join(", ")} 正在思考... (${elapsedSeconds}s)`);
             }
-            
-            if (humanUsers.length > 0) {
-                parts.push(`⌨️ ${humanUsers.join(", ")} 正在输入...`);
-            }
-
+            if (humanUsers.length > 0) parts.push(`⌨️ ${humanUsers.join(", ")} 正在输入...`);
             indicatorDiv.innerText = parts.join("  |  ");
         }
 
@@ -268,18 +180,102 @@
         document.getElementById("messageText").addEventListener("input", function() {
             ws.send(JSON.stringify({type: "typing", is_typing: true}));
             clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                ws.send(JSON.stringify({type: "typing", is_typing: false}));
-            }, 1000);
+            typingTimeout = setTimeout(() => { ws.send(JSON.stringify({type: "typing", is_typing: false})); }, 1000);
         });
+
+        // ==========================================
+        // 核心功能：文件处理模块 (拖拽、粘贴、选择)
+        // ==========================================
+        
+        // 1. 拖拽监听
+        const chatContainer = document.getElementById("chat-container");
+        chatContainer.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            chatContainer.classList.add("drag-active");
+        });
+        chatContainer.addEventListener("dragleave", () => {
+            chatContainer.classList.remove("drag-active");
+        });
+        chatContainer.addEventListener("drop", (e) => {
+            e.preventDefault();
+            chatContainer.classList.remove("drag-active");
+            handleFiles(e.dataTransfer.files);
+        });
+
+        // 2. 粘贴拦截 (支持微信截图直接 Ctrl+V)
+        document.getElementById("messageText").addEventListener("paste", (e) => {
+            if (e.clipboardData.files.length > 0) {
+                e.preventDefault(); 
+                handleFiles(e.clipboardData.files);
+            }
+        });
+
+        // 3. 按钮选择文件
+        document.getElementById("fileInput").addEventListener("change", (e) => {
+            handleFiles(e.target.files);
+            e.target.value = ""; // 清空，允许重复选择同名文件
+        });
+
+        // 解析并展示预览
+        function handleFiles(files) {
+            for (let f of files) {
+                if (!f.type.match("image.*") && f.type !== "application/pdf") {
+                    alert("目前仅支持图片和 PDF 格式！");
+                    continue;
+                }
+                
+                let reader = new FileReader();
+                reader.onload = function(e) {
+                    pendingFiles.push({ name: f.name, mime: f.type, data: e.target.result });
+                    renderFilePreviews();
+                };
+                reader.readAsDataURL(f);
+            }
+        }
+
+        function renderFilePreviews() {
+            const container = document.getElementById("attachment-preview");
+            container.innerHTML = "";
+            
+            if (pendingFiles.length === 0) {
+                container.style.display = "none";
+                return;
+            }
+            
+            container.style.display = "flex";
+            pendingFiles.forEach((f, index) => {
+                let chip = document.createElement("div");
+                chip.className = "file-chip";
+                let icon = f.mime.startsWith("image/") ? `<img src="${f.data}">` : `📄 `;
+                chip.innerHTML = `${icon} <span>${f.name}</span> <span class="remove-file" onclick="removeFile(${index})">✖</span>`;
+                container.appendChild(chip);
+            });
+        }
+
+        function removeFile(index) {
+            pendingFiles.splice(index, 1);
+            renderFilePreviews();
+        }
 
         function sendMessage() {
             let input = document.getElementById("messageText");
-            if (input.value.trim() !== "") {
-                ws.send(JSON.stringify({type: "message", content: input.value}));
-                input.value = '';
-                ws.send(JSON.stringify({type: "typing", is_typing: false}));
-            }
+            let content = input.value.trim();
+            
+            if (content === "" && pendingFiles.length === 0) return;
+
+            // 打包文本和 Base64 文件组一起发送
+            ws.send(JSON.stringify({
+                type: "message", 
+                content: content || "请查看附带的文件。", 
+                files: pendingFiles 
+            }));
+            
+            input.value = '';
+            ws.send(JSON.stringify({type: "typing", is_typing: false}));
+            
+            // 清空文件队列
+            pendingFiles = [];
+            renderFilePreviews();
         }
 
         document.getElementById("messageText").addEventListener("keypress", function(event) {
@@ -288,13 +284,16 @@
                 sendMessage();
             }
         });
-        
-        // 预留的附件上传监听器
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            if(e.target.files.length > 0) {
-                alert("文件 [" + e.target.files[0].name + "] 已选中！(后端多模态解析逻辑待接入)");
-            }
-        });
+
+        function copyCode(btn, base64Code) {
+            const rawCode = decodeURIComponent(escape(atob(base64Code)));
+            navigator.clipboard.writeText(rawCode).then(() => {
+                const span = btn.querySelector('span');
+                const originalText = span.innerText;
+                span.innerText = '✅ 已复制';
+                setTimeout(() => { span.innerText = originalText; }, 2000);
+            }).catch(err => console.error('复制失败!', err));
+        }
     </script>
 </body>
 </html>
