@@ -3,59 +3,189 @@
 <head>
     <title>AI 协作学习室</title>
     <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        #chat-container { width: 100%; max-width: 800px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 90vh; }
-        #header { padding: 15px 20px; background: #0078d4; color: white; border-radius: 10px 10px 0 0; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between; }
+        #chat-container { width: 100%; max-width: 900px; background: white; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.05); display: flex; flex-direction: column; height: 90vh; }
+        #header { padding: 15px 20px; background: #2c3e50; color: white; border-radius: 12px 12px 0 0; font-weight: bold; font-size: 1.2em; display: flex; justify-content: space-between; }
         #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        .msg-box { max-width: 80%; padding: 10px 15px; border-radius: 8px; line-height: 1.5; }
-        .msg-sender { font-size: 0.8em; font-weight: bold; margin-bottom: 5px; color: #555; }
         
-        /* 不同的气泡颜色 */
-        .msg-Human { background: #dcf8c6; align-self: flex-end; } /* 人类绿色 */
-        .msg-Planner { background: #e1f5fe; align-self: flex-start; border-left: 4px solid #03a9f4; } /* 规划师蓝色 */
-        .msg-Facilitator { background: #fff3e0; align-self: flex-start; border-left: 4px solid #ff9800; } /* 引导者橙色 */
-        .msg-System { background: #eeeeee; align-self: center; font-size: 0.85em; color: #888; text-align: center; border-radius: 20px; padding: 5px 15px; }
+        /* 气泡样式重构 */
+        .msg-box { max-width: 85%; padding: 12px 18px; border-radius: 8px; line-height: 1.6; font-size: 0.95em; }
+        .msg-sender { font-size: 0.85em; font-weight: bold; margin-bottom: 8px; color: #555; }
+        .msg-Human { background: #dcf8c6; align-self: flex-end; }
+        .msg-Planner { background: #f8f9fa; align-self: flex-start; border-left: 4px solid #3498db; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        .msg-Facilitator { background: #fffdf7; align-self: flex-start; border-left: 4px solid #f39c12; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        .msg-System { background: transparent; align-self: center; font-size: 0.8em; color: #aaa; text-align: center; }
         
-        #input-area { display: flex; padding: 15px; border-top: 1px solid #ddd; background: #fafafa; border-radius: 0 0 10px 10px; }
-        #messageText { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 5px; outline: none; font-size: 1em; }
-        #messageText:focus { border-color: #0078d4; }
-        button { padding: 12px 25px; background: #0078d4; color: white; border: none; border-radius: 5px; margin-left: 10px; cursor: pointer; font-weight: bold; font-size: 1em; }
-        button:hover { background: #005a9e; }
+        /* ==================================== */
+        /* 工业级代码块 UI (带头部栏与复制按钮) */
+        /* ==================================== */
+        
+        .code-block-wrapper {
+            background: #0d1117; /* 极客黑底色 */
+            border-radius: 8px;
+            margin: 15px 0;
+            overflow: hidden; /* 让子元素不溢出圆角 */
+            border: 1px solid #30363d;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #161b22; /* 头部栏稍微亮一点点，形成层次感 */
+            padding: 8px 15px;
+            color: #8b949e;
+            font-size: 0.85em;
+            font-family: 'Segoe UI', sans-serif;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .code-lang {
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .code-copy-btn {
+            background: none;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
+            padding: 0;
+            transition: color 0.2s;
+        }
+
+        .code-copy-btn:hover {
+            color: #c9d1d9;
+        }
+
+        /* 重写 pre，去掉自带的背景和边距，让它完美融入 wrapper */
+        .markdown-body pre { 
+            margin: 0 !important; 
+            padding: 15px !important; 
+            background: transparent !important; 
+            border-radius: 0 !important; 
+            overflow-x: auto;
+            color: #c9d1d9;
+        }
+        
+        .markdown-body pre code { 
+            font-family: 'Consolas', 'Monaco', monospace; 
+            font-size: 0.9em;
+        }
+        
+        /* 段落与间距优化 */
+        .markdown-body p { margin-top: 0; margin-bottom: 10px; }
+        .markdown-body p:last-child { margin-bottom: 0; }
+        
+        /* 状态感知栏 */
+        #typing-indicator { padding: 5px 20px; font-size: 0.85em; color: #888; font-style: italic; min-height: 20px; }
+        
+        /* 输入区 */
+        #input-area { display: flex; padding: 15px; border-top: 1px solid #eee; background: #fafafa; border-radius: 0 0 12px 12px; align-items: center; gap: 10px;}
+        #btn-attach { background: none; border: none; font-size: 1.5em; cursor: pointer; color: #7f8c8d; }
+        #btn-attach:hover { color: #2c3e50; }
+        #messageText { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 1em; }
+        #messageText:focus { border-color: #3498db; }
+        #btn-send { padding: 12px 25px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;}
+        #btn-send:hover { background: #2980b9; }
     </style>
 </head>
 <body>
     <div id="chat-container">
         <div id="header">
-            <span>🌐 多人协作 + 多智能体学习室</span>
+            <span>🚀 多智能体协作学习空间</span>
             <span id="user-display">未连接</span>
         </div>
         <div id="messages"></div>
+        
+        <div id="typing-indicator"></div>
+        
         <div id="input-area">
-            <input type="text" id="messageText" autocomplete="off" placeholder="输入你想探讨的问题，按回车发送..."/>
-            <button onclick="sendMessage()">发送</button>
+            <input type="file" id="fileInput" style="display: none;" multiple accept=".txt,.pdf,image/*">
+            <button id="btn-attach" onclick="document.getElementById('fileInput').click()" title="上传文档/图片">📎</button>
+            
+            <input type="text" id="messageText" autocomplete="off" placeholder="探讨问题，或输入 @Planner 提问..."/>
+            <button id="btn-send" onclick="sendMessage()">发送</button>
         </div>
     </div>
 
     <script>
-        // 1. 获取用户身份
-        let username = prompt("欢迎来到协作室！请输入你的名字 (如：张三、同学A)：");
-        if (!username) username = "匿名者" + Math.floor(Math.random()*1000);
-        document.getElementById("user-display").innerText = "当前身份: " + username;
+        let username = prompt("请输入你的协作名 (如：学生A)：") || "匿名者" + Math.floor(Math.random()*1000);
+        document.getElementById("user-display").innerText = "身份: " + username;
 
-        // 2. 建立 WebSocket 连接
         let ws = new WebSocket(`ws://localhost:8000/ws/${username}`);
+        let typingUsers = new Set(); // 存储当前正在输入的人/AI
 
-        // 3. 接收广播消息并渲染到界面
+        // ==========================================
+        // 1. 安全 Markdown 渲染器配置
+        // ==========================================
+        const renderer = {
+            code(token) {
+                const codeText = token.text || '';
+                const lang = token.lang || 'plaintext';
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                const highlighted = hljs.highlight(codeText, { language }).value;
+                const safeCode = btoa(unescape(encodeURIComponent(codeText)));
+
+                return `
+                <div class="code-block-wrapper">
+                    <div class="code-header">
+                        <span class="code-lang">${language.toUpperCase()}</span>
+                        <button class="code-copy-btn" onclick="copyCode(this, '${safeCode}')">
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            <span>复制代码</span>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-${language}">${highlighted}</code></pre>
+                </div>`;
+            }
+        };
+
+        marked.use({ 
+            breaks: true,
+            renderer: renderer 
+        });
+
+        // 剪贴板复制触发函数
+        function copyCode(btn, base64Code) {
+            const rawCode = decodeURIComponent(escape(atob(base64Code)));
+            navigator.clipboard.writeText(rawCode).then(() => {
+                const span = btn.querySelector('span');
+                const originalText = span.innerText;
+                span.innerText = '✅ 已复制';
+                setTimeout(() => { span.innerText = originalText; }, 2000);
+            }).catch(err => console.error('复制失败!', err));
+        }
+
+        // ==========================================
+        // 2. 消息接收与渲染
+        // ==========================================
         ws.onmessage = function(event) {
             let data = JSON.parse(event.data);
+            
+            if (data.type === "message") {
+                renderMessage(data);
+            } else if (data.type === "typing") {
+                updateTypingIndicator(data);
+            }
+        };
+
+        function renderMessage(data) {
             let messages = document.getElementById('messages');
             let msgDiv = document.createElement('div');
             
-            // 判断是谁发的消息，应用不同的 CSS 气泡样式
             let roleClass = "msg-System";
-            if (data.sender === username || data.sender !== "Planner" && data.sender !== "Facilitator" && data.sender !== "System") {
-                roleClass = "msg-Human"; // 无论是你还是别的同学，都用绿色气泡
+            if (data.sender === username || (!["Planner", "Facilitator", "System"].includes(data.sender))) {
+                roleClass = "msg-Human";
             } else if (data.sender === "Planner") {
                 roleClass = "msg-Planner";
             } else if (data.sender === "Facilitator") {
@@ -64,32 +194,105 @@
 
             msgDiv.className = `msg-box ${roleClass}`;
             
-            // System 消息不显示名字
             if (data.sender === "System") {
                 msgDiv.innerText = data.message;
             } else {
-                msgDiv.innerHTML = `<div class="msg-sender">${data.sender}</div><div>${data.message}</div>`;
+                // 🛡️ 核心修复点：强制转换为 String，兜底 undefined，防止 markedjs 崩溃
+                let safeMessage = String(data.message || '');
+                let parsedHTML = marked.parse(safeMessage);
+                
+                msgDiv.innerHTML = `<div class="msg-sender">${data.sender}</div><div class="markdown-body">${parsedHTML}</div>`;
             }
 
             messages.appendChild(msgDiv);
-            // 自动滚动到最底部
             messages.scrollTop = messages.scrollHeight;
-        };
+        }
 
-        // 4. 发送消息
+        // ==========================================
+        // 3. 协作感知与 AI 思考计时器
+        // ==========================================
+        
+        let aiTimerInterval = null;
+        let aiStartTime = 0;
+
+        function updateTypingIndicator(data) {
+            if (data.is_typing && data.sender !== username) {
+                typingUsers.add(data.sender);
+                
+                if (["Planner", "Facilitator"].includes(data.sender) && !aiTimerInterval) {
+                    aiStartTime = Date.now();
+                    // 频率降低：每 1000 毫秒（1秒）刷新一次 UI 即可
+                    aiTimerInterval = setInterval(renderTypingText, 1000); 
+                }
+            } else {
+                typingUsers.delete(data.sender);
+                
+                let hasAIThinking = Array.from(typingUsers).some(u => ["Planner", "Facilitator"].includes(u));
+                if (!hasAIThinking && aiTimerInterval) {
+                    clearInterval(aiTimerInterval);
+                    aiTimerInterval = null;
+                }
+            }
+            
+            renderTypingText();
+        }
+
+        function renderTypingText() {
+            let indicatorDiv = document.getElementById("typing-indicator");
+            if (typingUsers.size === 0) {
+                indicatorDiv.innerText = "";
+                return;
+            }
+
+            let users = Array.from(typingUsers);
+            let aiUsers = users.filter(u => ["Planner", "Facilitator"].includes(u));
+            let humanUsers = users.filter(u => !["Planner", "Facilitator"].includes(u));
+
+            let parts = [];
+            
+            if (aiUsers.length > 0) {
+                // 使用 Math.floor 向下取整，获取纯粹的秒数
+                let elapsedSeconds = Math.floor((Date.now() - aiStartTime) / 1000);
+                // 格式修改：加了括号
+                parts.push(`🧠 ${aiUsers.join(", ")} 正在思考... (${elapsedSeconds}s)`);
+            }
+            
+            if (humanUsers.length > 0) {
+                parts.push(`⌨️ ${humanUsers.join(", ")} 正在输入...`);
+            }
+
+            indicatorDiv.innerText = parts.join("  |  ");
+        }
+
+        let typingTimeout;
+        document.getElementById("messageText").addEventListener("input", function() {
+            ws.send(JSON.stringify({type: "typing", is_typing: true}));
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                ws.send(JSON.stringify({type: "typing", is_typing: false}));
+            }, 1000);
+        });
+
         function sendMessage() {
             let input = document.getElementById("messageText");
             if (input.value.trim() !== "") {
-                ws.send(input.value);
+                ws.send(JSON.stringify({type: "message", content: input.value}));
                 input.value = '';
+                ws.send(JSON.stringify({type: "typing", is_typing: false}));
             }
         }
 
-        // 绑定回车键发送
         document.getElementById("messageText").addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
                 event.preventDefault();
                 sendMessage();
+            }
+        });
+        
+        // 预留的附件上传监听器
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            if(e.target.files.length > 0) {
+                alert("文件 [" + e.target.files[0].name + "] 已选中！(后端多模态解析逻辑待接入)");
             }
         });
     </script>
